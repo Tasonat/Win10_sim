@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows 10 Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ===== LOCK SCREEN ===== */
+  #lockScreen {
+    position: fixed; inset: 0; z-index: 10000;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><defs><linearGradient id="g" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" stop-color="%230078D4"/><stop offset="50%25" stop-color="%23005A9E"/><stop offset="100%25" stop-color="%23003F72"/></linearGradient></defs><rect fill="url(%23g)" width="1920" height="1080"/></svg>') center/cover;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white; cursor: pointer;
+    transition: opacity 0.5s, transform 0.5s;
+  }
+  #lockScreen.hide { opacity: 0; transform: translateY(-100%); pointer-events: none; }
+  #lockTime { font-size: 96px; font-weight: 300; }
+  #lockDate { font-size: 24px; font-weight: 300; margin-top: 5px; }
+  #lockHint { position: absolute; bottom: 60px; font-size: 16px; opacity: 0.7; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{ opacity:0.4; } 50%{ opacity:1; } }
+
+  /* ===== LOGIN SCREEN ===== */
+  #loginScreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #0078D4, #005A9E);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: white;
+    transition: opacity 0.5s;
+  }
+  #loginScreen.show { display: flex; }
+  #loginScreen.hide { opacity: 0; pointer-events: none; }
+  .avatar {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: #444; display: flex; align-items: center; justify-content: center;
+    font-size: 48px; margin-bottom: 15px;
+  }
+  #loginScreen .username { font-size: 22px; margin-bottom: 20px; }
+  #loginScreen input {
+    padding: 10px 15px; width: 280px; border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.15); color: white; font-size: 15px;
+    border-radius: 3px; outline: none;
+  }
+  #loginScreen input::placeholder { color: rgba(255,255,255,0.6); }
+  #loginBtn {
+    margin-top: 10px; padding: 8px 30px; background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4); color: white; cursor: pointer;
+    border-radius: 3px; font-size: 14px;
+  }
+  #loginBtn:hover { background: rgba(255,255,255,0.3); }
+
+  /* ===== DESKTOP ===== */
+  #desktop {
+    width: 100vw; height: 100vh;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><defs><radialGradient id="g" cx="50%25" cy="40%25" r="70%25"><stop offset="0%25" stop-color="%230078D4"/><stop offset="100%25" stop-color="%23001a33"/></radialGradient></defs><rect fill="url(%23g)" width="1920" height="1080"/></svg>') center/cover;
+    position: relative;
+    display: none;
+  }
+  #desktop.show { display: block; }
+
+  /* Desktop Icons */
+  .desktop-icons {
+    padding: 20px;
+    display: flex; flex-direction: column; flex-wrap: wrap;
+    gap: 10px; height: calc(100vh - 48px);
+    align-content: flex-start;
+  }
+  .desktop-icon {
+    width: 80px; padding: 8px 5px; text-align: center;
+    border-radius: 4px; cursor: pointer; transition: background 0.15s;
+  }
+  .desktop-icon:hover { background: rgba(255,255,255,0.15); }
+  .desktop-icon.selected { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); }
+  .desktop-icon .icon { font-size: 36px; display: block; margin-bottom: 4px; }
+  .desktop-icon .label { font-size: 11px; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); word-wrap: break-word; }
+
+  /* ===== TASKBAR ===== */
+  #taskbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 48px; background: rgba(23,23,23,0.95);
+    display: flex; align-items: center; z-index: 5000;
+    backdrop-filter: blur(20px);
+  }
+  #startBtn {
+    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.15s;
+  }
+  #startBtn:hover { background: rgba(255,255,255,0.1); }
+  #startBtn svg { width: 18px; height: 18px; fill: white; }
+
+  #searchBar {
+    height: 34px; width: 280px; margin-left: 4px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px; display: flex; align-items: center; padding: 0 10px;
+    color: rgba(255,255,255,0.5); font-size: 13px; cursor: text;
+  }
+  #searchBar span { margin-left: 8px; }
+
+  .taskbar-icons {
+    display: flex; margin-left: 8px; height: 100%;
+  }
+  .taskbar-item {
+    height: 48px; min-width: 48px; padding: 0 12px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; color: white; font-size: 13px;
+    transition: background 0.15s;
+  }
+  .taskbar-item:hover { background: rgba(255,255,255,0.1); }
+  .taskbar-item.active::after {
+    content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+    height: 3px; background: #0078D4; border-radius: 2px 2px 0 0;
+  }
+  .taskbar-item .t-icon { font-size: 20px; margin-right: 6px; }
+
+  .system-tray {
+    margin-left: auto; display: flex; align-items: center; height: 100%;
+    color: white; font-size: 12px;
+  }
+  .tray-icon {
+    height: 48px; padding: 0 8px; display: flex; align-items: center;
+    cursor: pointer; transition: background 0.15s; font-size: 16px;
+  }
+  .tray-icon:hover { background: rgba(255,255,255,0.1); }
+  #trayClock { padding: 0 12px; text-align: right; line-height: 1.4; font-size: 12px; cursor: pointer; }
+
+  /* ===== START MENU ===== */
+  #startMenu {
+    position: fixed; bottom: 48px; left: 0;
+    width: 600px; height: 500px;
+    background: rgba(23,23,23,0.97);
+    backdrop-filter: blur(30px);
+    z-index: 6000; display: none;
+    animation: slideUp 0.2s ease-out;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  #startMenu.show { display: flex; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .start-left {
+    width: 50px; background: rgba(255,255,255,0.03);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 8px 0;
+  }
+  .start-left-icon {
+    width: 50px; height: 44px; display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px; cursor: pointer; transition: background 0.15s;
+  }
+  .start-left-icon:hover { background: rgba(255,255,255,0.1); }
+
+  .start-apps {
+    flex: 1; padding: 10px 15px; overflow-y: auto; color: white;
+  }
+  .start-apps::-webkit-scrollbar { width: 4px; }
+  .start-apps::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+  .start-apps h3 { font-size: 13px; font-weight: 600; padding: 8px 0 4px; color: rgba(255,255,255,0.5); }
+  .start-app-item {
+    padding: 8px 10px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; border-radius: 3px; transition: background 0.15s; font-size: 14px;
+  }
+  .start-app-item:hover { background: rgba(255,255,255,0.1); }
+  .start-app-item .sa-icon { font-size: 22px; width: 30px; text-align: center; }
+
+  .start-tiles {
+    width: 280px; padding: 10px; display: grid;
+    grid-template-columns: 1fr 1fr; gap: 4px;
+    align-content: start;
+  }
+  .tile {
+    height: 80px; border-radius: 3px; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; color: white; font-size: 12px;
+    transition: transform 0.15s, filter 0.15s;
+  }
+  .tile:hover { transform: scale(1.03); filter: brightness(1.15); }
+  .tile .tile-icon { font-size: 28px; margin-bottom: 6px; }
+  .tile.wide { grid-column: span 2; }
+
+  /* ===== WINDOWS ===== */
+  .window {
+    position: absolute;
+    min-width: 400px; min-height: 300px;
+    background: #1e1e1e;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px 6px 0 0;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column;
+    animation: windowOpen 0.25s ease-out;
+  }
+  @keyframes windowOpen { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .window.closing { animation: windowClose 0.2s ease-in forwards; }
+  @keyframes windowClose { to { transform: scale(0.9); opacity: 0; } }
+  .window.maximized { top: 0 !important; left: 0 !important; width: 100vw !important; height: calc(100vh - 48px) !important; border-radius: 0; }
+
+  .window-header {
+    height: 36px; background: #2d2d2d;
+    display: flex; align-items: center;
+    cursor: move; flex-shrink: 0;
+  }
+  .window-header .wh-icon { margin-left: 10px; font-size: 14px; }
+  .window-header .wh-title { margin-left: 8px; color: white; font-size: 12px; flex: 1; }
+  .window-controls { display: flex; height: 100%; }
+  .window-controls button {
+    width: 46px; height: 100%; border: none; background: transparent;
+    color: rgba(255,255,255,0.7); font-size: 14px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .window-controls button:hover { background: rgba(255,255,255,0.1); }
+  .window-controls .close-btn:hover { background: #e81123; color: white; }
+
+  .window-body {
+    flex: 1; overflow: auto; color: white; font-size: 14px;
+  }
+
+  /* ===== FILE EXPLORER ===== */
+  .explorer-toolbar {
+    display: flex; align-items: center; padding: 6px 12px;
+    background: #2d2d2d; border-bottom: 1px solid rgba(255,255,255,0.05);
+    gap: 8px;
+  }
+  .explorer-toolbar button {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: white; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;
+  }
+  .explorer-toolbar button:hover { background: rgba(255,255,255,0.15); }
+  .explorer-path {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8); padding: 4px 10px; border-radius: 3px; font-size: 12px;
+  }
+  .explorer-sidebar {
+    width: 200px; background: rgba(255,255,255,0.02);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    padding: 10px 0;
+  }
+  .explorer-sidebar-item {
+    padding: 5px 15px; cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s;
+  }
+  .explorer-sidebar-item:hover { background: rgba(255,255,255,0.08); }
+  .explorer-sidebar-item.active { background: rgba(255,255,255,0.1); }
+  .explorer-content { flex: 1; padding: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+  .explorer-item {
+    width: 80px; text-align: center; padding: 8px 5px;
+    border-radius: 4px; cursor: pointer; transition: background 0.15s;
+  }
+  .explorer-item:hover { background: rgba(255,255,255,0.1); }
+  .explorer-item .ei-icon { font-size: 36px; }
+  .explorer-item .ei-name { font-size: 11px; margin-top: 4px; word-wrap: break-word; }
+
+  /* ===== NOTEPAD ===== */
+  .notepad-menu {
+    display: flex; padding: 2px 5px; background: #2d2d2d;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .notepad-menu span {
+    padding: 3px 10px; cursor: pointer; font-size: 12px; color: rgba(255,255,255,0.8);
+    border-radius: 3px;
+  }
+  .notepad-menu span:hover { background: rgba(255,255,255,0.1); }
+  .notepad-textarea {
+    width: 100%; flex: 1; background: #1e1e1e; color: white;
+    border: none; padding: 10px; font-family: 'Consolas', monospace;
+    font-size: 14px; resize: none; outline: none;
+  }
+
+  /* ===== CALCULATOR ===== */
+  .calc-display {
+    padding: 20px 15px 10px; text-align: right;
+    font-size: 40px; font-weight: 300; color: white;
+    background: #1e1e1e; min-height: 80px;
+    overflow: hidden;
+  }
+  .calc-buttons {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 2px; padding: 4px;
+  }
+  .calc-btn {
+    padding: 18px; border: none; font-size: 18px;
+    cursor: pointer; transition: background 0.1s;
+    background: #3b3b3b; color: white;
+  }
+  .calc-btn:hover { background: #4a4a4a; }
+  .calc-btn.operator { background: #323232; }
+  .calc-btn.operator:hover { background: #444; }
+  .calc-btn.equals { background: #0078D4; }
+  .calc-btn.equals:hover { background: #1a8ae6; }
+  .calc-btn.clear { background: #a33; }
+  .calc-btn.clear:hover { background: #c44; }
+
+  /* ===== SETTINGS ===== */
+  .settings-container { display: flex; height: 100%; }
+  .settings-sidebar {
+    width: 220px; background: rgba(255,255,255,0.03);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    padding: 15px 0;
+  }
+  .settings-item {
+    padding: 10px 20px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; gap: 12px;
+    transition: background 0.15s;
+  }
+  .settings-item:hover { background: rgba(255,255,255,0.08); }
+  .settings-item.active { background: rgba(0,120,212,0.2); border-left: 3px solid #0078D4; }
+  .settings-content { flex: 1; padding: 25px; }
+  .settings-content h2 { font-size: 28px; font-weight: 300; margin-bottom: 20px; }
+  .settings-option {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .toggle-switch {
+    width: 44px; height: 22px; background: #555; border-radius: 11px;
+    cursor: pointer; position: relative; transition: background 0.3s;
+  }
+  .toggle-switch.on { background: #0078D4; }
+  .toggle-switch::after {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    background: white; border-radius: 50%; top: 3px; left: 3px;
+    transition: left 0.3s;
+  }
+  .toggle-switch.on::after { left: 25px; }
+
+  /* ===== BROWSER ===== */
+  .browser-toolbar {
+    display: flex; align-items: center; padding: 6px 10px;
+    background: #2d2d2d; gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .browser-toolbar button {
+    background: none; border: none; color: rgba(255,255,255,0.6);
+    font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 3px;
+  }
+  .browser-toolbar button:hover { background: rgba(255,255,255,0.1); }
+  .browser-url {
+    flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+    color: white; padding: 5px 12px; border-radius: 20px; font-size: 13px; outline: none;
+  }
+  .browser-content {
+    flex: 1; background: #fff; color: #333; padding: 40px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .browser-content h1 { font-size: 24px; color: #202124; margin-bottom: 25px; }
+  .browser-search-box {
+    width: 500px; max-width: 90%; padding: 12px 20px;
+    border: 1px solid #dfe1e5; border-radius: 24px;
+    font-size: 16px; outline: none;
+  }
+  .browser-search-box:focus { box-shadow: 0 1px 6px rgba(32,33,36,0.28); }
+
+  /* ===== TERMINAL ===== */
+  .terminal-body {
+    background: #0c0c0c; color: #ccc; padding: 10px;
+    font-family: 'Consolas', monospace; font-size: 14px;
+    flex: 1; overflow-y: auto;
+  }
+  .terminal-body .line { margin-bottom: 2px; }
+  .terminal-body .prompt { color: #5bc0de; }
+  .terminal-input-line { display: flex; }
+  .terminal-input {
+    background: transparent; border: none; color: #ccc;
+    font-family: 'Consolas', monospace; font-size: 14px;
+    outline: none; flex: 1;
+  }
+
+  /* ===== CONTEXT MENU ===== */
+  #contextMenu {
+    position: fixed; min-width: 220px;
+    background: rgba(43,43,43,0.97); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 4px 0;
+    z-index: 8000; display: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: fadeIn 0.12s;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .ctx-item {
+    padding: 8px 20px; color: white; font-size: 13px;
+    cursor: pointer; display: flex; justify-content: space-between;
+    transition: background 0.1s;
+  }
+  .ctx-item:hover { background: rgba(255,255,255,0.1); }
+  .ctx-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; }
+
+  /* ===== NOTIFICATION ===== */
+  .notification {
+    position: fixed; top: -80px; right: 20px;
+    background: rgba(43,43,43,0.97); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 15px 20px; color: white;
+    z-index: 9000; min-width: 300px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: top 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .notification.show { top: 20px; }
+  .notification .n-title { font-weight: 600; font-size: 13px; }
+  .notification .n-text { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+  /* ===== ACTION CENTER ===== */
+  #actionCenter {
+    position: fixed; top: 0; right: -380px; bottom: 48px;
+    width: 380px; background: rgba(23,23,23,0.97);
+    backdrop-filter: blur(30px); z-index: 7000;
+    transition: right 0.3s ease; padding: 15px;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    color: white; overflow-y: auto;
+  }
+  #actionCenter.show { right: 0; }
+  .ac-header { font-size: 14px; font-weight: 600; margin-bottom: 15px; display: flex; justify-content: space-between; }
+  .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 15px; }
+  .qa-btn {
+    height: 60px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.05); border-radius: 3px;
+    cursor: pointer; font-size: 10px; gap: 4px;
+    transition: background 0.15s;
+  }
+  .qa-btn:hover { background: rgba(255,255,255,0.12); }
+  .qa-btn.active { background: #0078D4; }
+  .qa-btn .qa-icon { font-size: 18px; }
+  .slider-container { margin-top: 20px; }
+  .slider-container label { font-size: 12px; opacity: 0.7; display: flex; align-items: center; gap: 8px; }
+  .slider-container input[type="range"] {
+    width: 100%; margin-top: 8px; accent-color: #0078D4;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lockScreen">
+  <div id="lockTime">12:00</div>
+  <div id="lockDate">piątek, 6 marca</div>
+  <div id="lockHint">Kliknij aby odblokować</div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="avatar">👤</div>
+  <div class="username">Użytkownik</div>
+  <input type="password" id="loginPass" placeholder="Hasło (wciśnij Enter)" autocomplete="off">
+  <button id="loginBtn">→ Zaloguj</button>
+</div>
+
+<!-- DESKTOP -->
+<div id="desktop">
+  <div class="desktop-icons" id="desktopIcons"></div>
+</div>
+
+<!-- TASKBAR -->
+<div id="taskbar" style="display:none;">
+  <div id="startBtn">
+    <svg viewBox="0 0 88 88"><path d="M0 0h42v42H0zM46 0h42v42H46zM0 46h42v42H0zM46 46h42v42H46z"/></svg>
+  </div>
+  <div id="searchBar">
+    <span>🔍</span>
+    <span>Wyszukaj w Windows</span>
+  </div>
+  <div class="taskbar-icons" id="taskbarItems"></div>
+  <div class="system-tray">
+    <div class="tray-icon" id="trayWifi" title="Wi-Fi">📶</div>
+    <div class="tray-icon" id="trayVolume" title="Głośność">🔊</div>
+    <div class="tray-icon" id="trayBattery" title="Bateria">🔋</div>
+    <div id="trayClock">
+      <div id="trayTime"></div>
+      <div id="trayDate"></div>
+    </div>
+    <div class="tray-icon" id="trayNotif" title="Centrum akcji">💬</div>
+  </div>
+</div>
+
+<!-- START MENU -->
+<div id="startMenu">
+  <div class="start-left">
+    <div class="start-left-icon" title="Użytkownik">👤</div>
+    <div class="start-left-icon" title="Ustawienia" onclick="openApp('settings')">⚙️</div>
+    <div class="start-left-icon" title="Zasilanie" onclick="showShutdownMenu()">⏻</div>
+  </div>
+  <div class="start-apps" id="startAppsList"></div>
+  <div class="start-tiles" id="startTiles"></div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="contextMenu"></div>
+
+<!-- ACTION CENTER -->
+<div id="actionCenter">
+  <div class="ac-header">
+    <span>Centrum akcji</span>
+    <span style="cursor:pointer;opacity:0.5;" onclick="toggleActionCenter()">✕</span>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:4px;margin-bottom:10px;">
+    <div style="font-size:13px;">📧 Poczta</div>
+    <div style="font-size:12px;opacity:0.6;margin-top:4px;">Masz 3 nowe wiadomości</div>
+  </div>
+  <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:4px;">
+    <div style="font-size:13px;">🛡️ Zabezpieczenia Windows</div>
+    <div style="font-size:12px;opacity:0.6;margin-top:4px;">Twoje urządzenie jest chronione</div>
+  </div>
+  <div class="quick-actions" id="quickActions"></div>
+  <div class="slider-container">
+    <label>☀️ Jasność</label>
+    <input type="range" min="30" max="100" value="100" id="brightnessSlider">
+  </div>
+  <div class="slider-container">
+    <label>🔊 Głośność</label>
+    <input type="range" min="0" max="100" value="75">
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div class="notification" id="notification">
+  <div class="n-title"></div>
+  <div class="n-text"></div>
+</div>
+
+<script>
+// ===== GLOBAL STATE =====
+let windows = [];
+let windowZIndex = 100;
+let activeWindowId = null;
+let startMenuOpen = false;
+let actionCenterOpen = false;
+let dragState = null;
+
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2, '0');
+  const m = now.getMinutes().toString().padStart(2, '0');
+  const days = ['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'];
+  const months = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+  document.getElementById('lockTime').textContent = `${h}:${m}`;
+  document.getElementById('lockDate').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+  document.getElementById('trayTime').textContent = `${h}:${m}`;
+  document.getElementById('trayDate').textContent = `${now.getDate()}.${(now.getMonth()+1).toString().padStart(2,'0')}.${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== LOCK SCREEN =====
+document.getElementById('lockScreen').addEventListener('click', () => {
+  document.getElementById('lockScreen').classList.add('hide');
+  setTimeout(() => {
+    document.getElementById('loginScreen').classList.add('show');
+    document.getElementById('loginPass').focus();
+  }, 500);
+});
+
+// ===== LOGIN =====
+function doLogin() {
+  document.getElementById('loginScreen').classList.add('hide');
+  setTimeout(() => {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('desktop').classList.add('show');
+    document.getElementById('taskbar').style.display = 'flex';
+    showNotification('Witaj! 👋', 'System Windows 10 jest gotowy do pracy.');
+  }, 500);
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+// ===== DESKTOP ICONS =====
+const desktopApps = [
+  { id: 'explorer', icon: '📁', name: 'Ten komputer' },
+  { id: 'recycle', icon: '🗑️', name: 'Kosz' },
+  { id: 'browser', icon: '🌐', name: 'Edge' },
+  { id: 'notepad', icon: '📝', name: 'Notatnik' },
+  { id: 'calculator', icon: '🧮', name: 'Kalkulator' },
+  { id: 'terminal', icon: '⬛', name: 'Terminal' },
+  { id: 'settings', icon: '⚙️', name: 'Ustawienia' },
+  { id: 'photos', icon: '🖼️', name: 'Zdjęcia' },
+  { id: 'music', icon: '🎵', name: 'Muzyka' },
+  { id: 'store', icon: '🛍️', name: 'Sklep' },
+];
+
+const iconsContainer = document.getElementById('desktopIcons');
+desktopApps.forEach(app => {
+  const el = document.createElement('div');
+  el.className = 'desktop-icon';
+  el.innerHTML = `<span class="icon">${app.icon}</span><span class="label">${app.name}</span>`;
+  el.addEventListener('dblclick', () => openApp(app.id));
+  el.addEventListener('click', (e) => {
+    document.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
+    e.stopPropagation();
+  });
+  iconsContainer.appendChild(el);
+});
+document.getElementById('desktop').addEventListener('click', (e) => {
+  if (e.target.id === 'desktop' || e.target.id === 'desktopIcons') {
+    document.querySelectorAll('.desktop-icon').forEach(i => i.classList.remove('selected'));
+  }
+});
+
+// ===== START MENU =====
+const startApps = [
+  { id: 'calculator', icon: '🧮', name: 'Kalkulator' },
+  { id: 'browser', icon: '🌐', name: 'Microsoft Edge' },
+  { id: 'explorer', icon: '📁', name: 'Eksplorator plików' },
+  { id: 'notepad', icon: '📝', name: 'Notatnik' },
+  { id: 'terminal', icon: '⬛', name: 'Terminal' },
+  { id: 'settings', icon: '⚙️', name: 'Ustawienia' },
+  { id: 'photos', icon: '🖼️', name: 'Zdjęcia' },
+  { id: 'music', icon: '🎵', name: 'Groove Music' },
+  { id: 'store', icon: '🛍️', name: 'Microsoft Store' },
+  { id: 'paint', icon: '🎨', name: 'Paint' },
+];
+
+const startList = document.getElementById('startAppsList');
+let currentLetter = '';
+startApps.sort((a,b) => a.name.localeCompare(b.name)).forEach(app => {
+  const letter = app.name[0].toUpperCase();
+  if (letter !== currentLetter) {
+    currentLetter = letter;
+    const h = document.createElement('h3');
+    h.textContent = letter;
+    startList.appendChild(h);
+  }
+  const el = document.createElement('div');
+  el.className = 'start-app-item';
+  el.innerHTML = `<span class="sa-icon">${app.icon}</span><span>${app.name}</span>`;
+  el.addEventListener('click', () => { openApp(app.id); toggleStartMenu(); });
+  startList.appendChild(el);
+});
+
+const tiles = [
+  { id: 'browser', icon: '🌐', name: 'Edge', color: '#0078D4', wide: true },
+  { id: 'photos', icon: '🖼️', name: 'Zdjęcia', color: '#744DA9' },
+  { id: 'music', icon: '🎵', name: 'Muzyka', color: '#E81123' },
+  { id: 'store', icon: '🛍️', name: 'Sklep', color: '#0078D4' },
+  { id: 'calculator', icon: '🧮', name: 'Kalkulator', color: '#2D7D9A' },
+  { id: 'notepad', icon: '📝', name: 'Notatnik', color: '#567C73' },
+  { id: 'settings', icon: '⚙️', name: 'Ustawienia', color: '#484848' },
+];
+
+const tilesContainer = document.getElementById('startTiles');
+tiles.forEach(t => {
+  const el = document.createElement('div');
+  el.className = `tile ${t.wide ? 'wide' : ''}`;
+  el.style.background = t.color;
+  el.innerHTML = `<span class="tile-icon">${t.icon}</span>${t.name}`;
+  el.addEventListener('click', () => { openApp(t.id); toggleStartMenu(); });
+  tilesContainer.appendChild(el);
+});
+
+document.getElementById('startBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleStartMenu();
+});
+
+function toggleStartMenu() {
+  startMenuOpen = !startMenuOpen;
+  document.getElementById('startMenu').classList.toggle('show', startMenuOpen);
+  if (startMenuOpen && actionCenterOpen) toggleActionCenter();
+}
+
+// ===== ACTION CENTER =====
+const qaButtons = [
+  { icon: '📶', name: 'Wi-Fi', active: true },
+  { icon: '✈️', name: 'Tryb lot.', active: false },
+  { icon: '🔵', name: 'Bluetooth', active: true },
+  { icon: '🌙', name: 'Nie przesz.', active: false },
+  { icon: '📍', name: 'Lokalizacja', active: true },
+  { icon: '🔒', name: 'VPN', active: false },
+  { icon: '💡', name: 'Nocne św.', active: false },
+  { icon: '📱', name: 'Hotspot', active: false },
+];
+
+const qaContainer = document.getElementById('quickActions');
+qaButtons.forEach(btn => {
+  const el = document.createElement('div');
+  el.className = `qa-btn ${btn.active ? 'active' : ''}`;
+  el.innerHTML = `<span class="qa-icon">${btn.icon}</span>${btn.name}`;
+  el.addEventListener('click', () => el.classList.toggle('active'));
+  qaContainer.appendChild(el);
+});
+
+document.getElementById('trayNotif').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleActionCenter();
+});
+
+function toggleActionCenter() {
+  actionCenterOpen = !actionCenterOpen;
+  document.getElementById('actionCenter').classList.toggle('show', actionCenterOpen);
+  if (actionCenterOpen && startMenuOpen) toggleStartMenu();
+}
+
+// Brightness
+document.getElementById('brightnessSlider').addEventListener('input', (e) => {
+  document.body.style.filter = `brightness(${e.target.value}%)`;
+});
+
+// ===== CONTEXT MENU =====
+document.getElementById('desktop').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const menu = document.getElementById('contextMenu');
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="contextAction('view')">Widok ▸</div>
+    <div class="ctx-item" onclick="contextAction('sort')">Sortuj według ▸</div>
+    <div class="ctx-item" onclick="contextAction('refresh')">Odśwież</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="contextAction('paste')">Wklej <span style="opacity:0.4">Ctrl+V</span></div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="openApp('settings')">Personalizacja</div>
+    <div class="ctx-item" onclick="openApp('terminal')">Otwórz terminal</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="contextAction('new')">Nowy ▸</div>
+  `;
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  menu.style.display = 'block';
+});
+
+document.addEventListener('click', () => {
+  document.getElementById('contextMenu').style.display = 'none';
+  if (startMenuOpen) { startMenuOpen = false; document.getElementById('startMenu').classList.remove('show'); }
+});
+
+function contextAction(action) {
+  document.getElementById('contextMenu').style.display = 'none';
+  if (action === 'refresh') {
+    showNotification('Odświeżono', 'Pulpit został odświeżony.');
+  }
+}
+
+// ===== NOTIFICATION =====
+function showNotification(title, text) {
+  const n = document.getElementById('notification');
+  n.querySelector('.n-title').textContent = title;
+  n.querySelector('.n-text').textContent = text;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 4000);
+}
+
+// ===== WINDOW MANAGEMENT =====
+function createWindow(id, title, icon, width, height, bodyHTML) {
+  const existing = windows.find(w => w.id === id);
+  if (existing) {
+    focusWindow(id);
+    return;
+  }
+
+  const win = document.createElement('div');
+  win.className = 'window';
+  win.id = `win-${id}`;
+  win.style.width = width + 'px';
+  win.style.height = height + 'px';
+  win.style.left = (100 + windows.length * 30) + 'px';
+  win.style.top = (60 + windows.length * 30) + 'px';
+  win.style.zIndex = ++windowZIndex;
+
+  win.innerHTML = `
+    <div class="window-header">
+      <span class="wh-icon">${icon}</span>
+      <span class="wh-title">${title}</span>
+      <div class="window-controls">
+        <button onclick="minimizeWindow('${id}')">─</button>
+        <button onclick="maximizeWindow('${id}')">☐</button>
+        <button class="close-btn" onclick="closeWindow('${id}')">✕</button>
+      </div>
+    </div>
+    <div class="window-body">${bodyHTML}</div>
+  `;
+
+  win.addEventListener('mousedown', () => focusWindow(id));
+
+  // Dragging
+  const header = win.querySelector('.window-header');
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    if (win.classList.contains('maximized')) return;
+    dragState = { win, startX: e.clientX, startY: e.clientY, origLeft: parseInt(win.style.left), origTop: parseInt(win.style.top) };
+  });
+
+  document.getElementById('desktop').appendChild(win);
+  windows.push({ id, title, icon, element: win, minimized: false });
+  updateTaskbar();
+  focusWindow(id);
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragState) return;
+  dragState.win.style.left = (dragState.origLeft + e.clientX - dragState.startX) + 'px';
+  dragState.win.style.top = (dragState.origTop + e.clientY - dragState.startY) + 'px';
+});
+document.addEventListener('mouseup', () => { dragState = null; });
+
+function focusWindow(id) {
+  const w = windows.find(w => w.id === id);
+  if (!w) return;
+  w.element.style.zIndex = ++windowZIndex;
+  if (w.minimized) {
+    w.element.style.display = 'flex';
+    w.minimized = false;
+  }
+  activeWindowId = id;
+  updateTaskbar();
+}
+
+function minimizeWindow(id) {
+  const w = windows.find(w => w.id === id);
+  if (!w) return;
+  w.element.style.display = 'none';
+  w.minimized = true;
+  activeWindowId = null;
+  updateTaskbar();
+}
+
+function maximizeWindow(id) {
+  const w = windows.find(w => w.id === id);
+  if (!w) return;
+  w.element.classList.toggle('maximized');
+}
+
+function closeWindow(id) {
+  const w = windows.find(w => w.id === id);
+  if (!w) return;
+  w.element.classList.add('closing');
+  setTimeout(() => {
+    w.element.remove();
+    windows = windows.filter(w => w.id !== id);
+    if (activeWindowId === id) activeWindowId = null;
+    updateTaskbar();
+  }, 200);
+}
+
+function updateTaskbar() {
+  const container = document.getElementById('taskbarItems');
+  container.innerHTML = '';
+  windows.forEach(w => {
+    const el = document.createElement('div');
+    el.className = `taskbar-item ${activeWindowId === w.id ? 'active' : ''}`;
+    el.innerHTML = `<span class="t-icon">${w.icon}</span><span>${w.title}</span>`;
+    el.addEventListener('click', () => {
+      if (activeWindowId === w.id && !w.minimized) {
+        minimizeWindow(w.id);
+      } else {
+        focusWindow(w.id);
+      }
+    });
+    container.appendChild(el);
+  });
+}
+
+// ===== APPS =====
+function openApp(id) {
+  switch(id) {
+    case 'explorer': openExplorer(); break;
+    case 'notepad': openNotepad(); break;
+    case 'calculator': openCalculator(); break;
+    case 'browser': openBrowser(); break;
+    case 'terminal': openTerminal(); break;
+    case 'settings': openSettings(); break;
+    case 'photos': openPhotos(); break;
+    case 'music': openMusic(); break;
+    case 'store': openStore(); break;
+    case 'paint': openPaint(); break;
+    case 'recycle': openRecycleBin(); break;
+    default: showNotification('Aplikacja', `${id} - Wkrótce dostępna!`);
+  }
+}
+
+// FILE EXPLORER
+function openExplorer() {
+  const folders = [
+    { icon: '📁', name: 'Dokumenty' }, { icon: '📁', name: 'Pobrane' },
+    { icon: '📁', name: 'Pulpit' }, { icon: '🖼️', name: 'Obrazy' },
+    { icon: '🎵', name: 'Muzyka' }, { icon: '🎬', name: 'Wideo' },
+    { icon: '💾', name: 'Dysk C:' }, { icon: '💿', name: 'Dysk D:' },
+  ];
+  const items = folders.map(f => `<div class="explorer-item" ondblclick="showNotification('Folder','Otwarto: ${f.name}')"><div class="ei-icon">${f.icon}</div><div class="ei-name">${f.name}</div></div>`).join('');
+
+  createWindow('explorer', 'Eksplorator plików', '📁', 800, 500, `
+    <div class="explorer-toolbar">
+      <button>← Wstecz</button>
+      <button>→</button>
+      <button>↑</button>
+      <div class="explorer-path">💻 &gt; Ten komputer</div>
+    </div>
+    <div style="display:flex;flex:1;overflow:hidden;">
+      <div class="explorer-sidebar">
+        <div class="explorer-sidebar-item active">⭐ Szybki dostęp</div>
+        <div class="explorer-sidebar-item">💻 Ten komputer</div>
+        <div class="explorer-sidebar-item">📁 Dokumenty</div>
+        <div class="explorer-sidebar-item">📥 Pobrane</div>
+        <div class="explorer-sidebar-item">🖼️ Obrazy</div>
+        <div class="explorer-sidebar-item">🎵 Muzyka</div>
+        <div class="explorer-sidebar-item">🌐 Sieć</div>
+      </div>
+      <div class="explorer-content">${items}</div>
+    </div>
+  `);
+}
+
+// NOTEPAD
+function openNotepad() {
+  createWindow('notepad', 'Notatnik', '📝', 650, 450, `
+    <div class="notepad-menu">
+      <span>Plik</span><span>Edycja</span><span>Format</span><span>Widok</span><span>Pomoc</span>
+    </div>
+    <textarea class="notepad-textarea" placeholder="Zacznij pisać..." spellcheck="false"></textarea>
+  `);
+  setTimeout(() => {
+    const ta = document.querySelector('#win-notepad .notepad-textarea');
+    if (ta) ta.focus();
+  }, 100);
+}
+
+// CALCULATOR
+let calcDisplay = '0';
+let calcPrev = '';
+let calcOp = '';
+let calcReset = false;
+
+function openCalculator() {
+  const btns = [
+    ['C','clear'],['⌫','operator'],['%','operator'],['÷','operator'],
+    ['7',''],['8',''],['9',''],['×','operator'],
+    ['4',''],['5',''],['6',''],['−','operator'],
+    ['1',''],['2',''],['3',''],['＋','operator'],
+    ['±',''],['0',''],['.',''],[' = ','equals'],
+  ];
+  const btnHtml = btns.map(b => `<button class="calc-btn ${b[1]}" onclick="calcPress('${b[0]}')">${b[0]}</button>`).join('');
+
+  createWindow('calculator', 'Kalkulator', '🧮', 320, 470, `
+    <div class="calc-display" id="calcDisplay">0</div>
+    <div class="calc-buttons">${btnHtml}</div>
+  `);
+  calcDisplay = '0'; calcPrev = ''; calcOp = ''; calcReset = false;
+}
+
+function calcPress(val) {
+  const display = document.getElementById('calcDisplay');
+  if (!display) return;
+
+  if (val === 'C') {
+    calcDisplay = '0'; calcPrev = ''; calcOp = ''; calcReset = false;
+  } else if (val === '⌫') {
+    calcDisplay = calcDisplay.length > 1 ? calcDisplay.slice(0, -1) : '0';
+  } else if (['+','−','×','÷','＋'].includes(val)) {
+    calcPrev = calcDisplay;
+    calcOp = val;
+    calcReset = true;
+  } else if (val.includes('=')) {
+    const a = parseFloat(calcPrev);
+    const b = parseFloat(calcDisplay);
+    let result = 0;
+    switch (calcOp) {
+      case '＋': result = a + b; break;
+      case '−': result = a - b; break;
+      case '×': result = a * b; break;
+      case '÷': result = b !== 0 ? a / b : 'Błąd'; break;
+      case '%': result = a % b; break;
+      default: result = b;
+    }
+    calcDisplay = result.toString();
+    calcOp = '';
+    calcReset = true;
+  } else if (val === '±') {
+    calcDisplay = (parseFloat(calcDisplay) * -1).toString();
+  } else {
+    if (calcDisplay === '0' || calcReset) { calcDisplay = val; calcReset = false; }
+    else calcDisplay += val;
+  }
+  display.textContent = calcDisplay;
+}
+
+// BROWSER
+function openBrowser() {
+  createWindow('browser', 'Microsoft Edge', '🌐', 900, 600, `
+    <div class="browser-toolbar">
+      <button>←</button><button>→</button><button>↻</button>
+      <input class="browser-url" id="browserUrl" value="https://www.bing.com" 
+             onkeydown="if(event.key==='Enter')browserNavigate()">
+      <button>☆</button>
+    </div>
+    <div class="browser-content" id="browserContent">
+      <div style="font-size:42px;margin-bottom:10px;">🔍</div>
+      <h1 style="font-weight:400;">Microsoft Bing</h1>
+      <input class="browser-search-box" placeholder="Szukaj w Internecie..." 
+             onkeydown="if(event.key==='Enter')browserSearch(this.value)">
+      <div style="margin-top:30px;display:flex;gap:15px;">
+        <div style="width:120px;height:80px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="browserSearch('Pogoda')">🌤️ Pogoda</div>
+        <div style="width:120px;height:80px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="browserSearch('Wiadomości')">📰 Wiadomości</div>
+        <div style="width:120px;height:80px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="browserSearch('Sport')">⚽ Sport</div>
+      </div>
+    </div>
+  `);
+}
+
+function browserSearch(q) {
+  const content = document.getElementById('browserContent');
+  if (!content) return;
+  document.getElementById('browserUrl').value = `https://www.bing.com/search?q=${encodeURIComponent(q)}`;
+  content.innerHTML = `
+    <div style="width:100%;max-width:700px;padding:20px;text-align:left;">
+      <h2 style="font-size:18px;margin-bottom:20px;">Wyniki wyszukiwania: "${q}"</h2>
+      <div style="margin-bottom:20px;"><a href="#" style="color:#1a0dab;font-size:16px;">pl.wikipedia.org › ${q}</a><p style="font-size:13px;color:#545454;margin-top:4px;">Artykuł encyklopedyczny na temat "${q}" z wieloma informacjami...</p></div>
+      <div style="margin-bottom:20px;"><a href="#" style="color:#1a0dab;font-size:16px;">${q} - najnowsze informacje | Portal.pl</a><p style="font-size:13px;color:#545454;margin-top:4px;">Najświeższe informacje na temat "${q}". Sprawdź co nowego!</p></div>
+      <div style="margin-bottom:20px;"><a href="#" style="color:#1a0dab;font-size:16px;">${q} | Wiadomości | Gazeta.pl</a><p style="font-size:13px;color:#545454;margin-top:4px;">Wszystko co musisz wiedzieć o "${q}" - czytaj online.</p></div>
+    </div>
+  `;
+}
+
+function browserNavigate() {
+  const url = document.getElementById('browserUrl').value;
+  const content = document.getElementById('browserContent');
+  content.innerHTML = `<div style="text-align:center;"><div style="font-size:32px;margin-bottom:10px;">🌍</div><p>Ładowanie: ${url}...</p><p style="color:#999;font-size:13px;margin-top:10px;">(To jest symulator — prawdziwa nawigacja jest niedostępna)</p></div>`;
+}
+
+// TERMINAL
+function openTerminal() {
+  createWindow('terminal', 'Terminal', '⬛', 700, 420, `
+    <div class="terminal-body" id="terminalBody">
+      <div class="line" style="color:#5bc0de;">Windows PowerShell</div>
+      <div class="line" style="color:#5bc0de;">Copyright (C) Microsoft Corporation. Wszelkie prawa zastrzeżone.</div>
+      <div class="line">&nbsp;</div>
+      <div class="terminal-input-line">
+        <span class="prompt">PS C:\\Users\\Użytkownik&gt; </span>
+        <input class="terminal-input" id="terminalInput" onkeydown="handleTerminal(event)" autofocus>
+      </div>
+    </div>
+  `);
+  setTimeout(() => { const inp = document.getElementById('terminalInput'); if(inp) inp.focus(); }, 100);
+}
+
+function handleTerminal(e) {
+  if (e.key !== 'Enter') return;
+  const input = e.target;
+  const cmd = input.value.trim();
+  const body = document.getElementById('terminalBody');
+  if (!body) return;
+
+  // Remove input line
+  const inputLine = input.parentElement;
+  inputLine.innerHTML = `<span class="prompt">PS C:\\Users\\Użytkownik&gt; </span>${cmd}`;
+
+  let output = '';
+  const lc = cmd.toLowerCase();
+  if (lc === 'dir' || lc === 'ls') {
+    output = `
+      <div class="line">    Katalog: C:\\Users\\Użytkownik</div>
+      <div class="line">&nbsp;</div>
+      <div class="line">d----    06.03.2026  12:00    Dokumenty</div>
+      <div class="line">d----    06.03.2026  12:00    Pobrane</div>
+      <div class="line">d----    06.03.2026  12:00    Pulpit</div>
+      <div class="line">d----    06.03.2026  12:00    Obrazy</div>
+      <div class="line">d----    06.03.2026  12:00    Muzyka</div>
+    `;
+  } else if (lc === 'cls' || lc === 'clear') {
+    body.innerHTML = '';
+  } else if (lc === 'date') {
+    output = `<div class="line">${new Date().toLocaleString('pl-PL')}</div>`;
+  } else if (lc === 'whoami') {
+    output = `<div class="line">DESKTOP-WIN10\\Użytkownik</div>`;
+  } else if (lc === 'hostname') {
+    output = `<div class="line">DESKTOP-WIN10</div>`;
+  } else if (lc === 'ipconfig') {
+    output = `
+      <div class="line">Konfiguracja IP systemu Windows</div>
+      <div class="line">&nbsp;</div>
+      <div class="line">Karta Ethernet:</div>
+      <div class="line">   Adres IPv4. . . . . : 192.168.1.42</div>
+      <div class="line">   Maska podsieci . . : 255.255.255.0</div>
+      <div class="line">   Brama domyślna . . : 192.168.1.1</div>
+    `;
+  } else if (lc === 'systeminfo') {
+    output = `
+      <div class="line">Nazwa hosta:          DESKTOP-WIN10</div>
+      <div class="line">Nazwa systemu:        Microsoft Windows 10 Pro</div>
+      <div class="line">Wersja systemu:       10.0.19045</div>
+      <div class="line">Procesor:             Intel Core i7-12700K</div>
+      <div class="line">Pamięć RAM:           16384 MB</div>
+    `;
+  } else if (lc.startsWith('echo ')) {
+    output = `<div class="line">${cmd.slice(5)}</div>`;
+  } else if (lc === 'help') {
+    output = `
+      <div class="line">Dostępne komendy: dir, ls, cls, clear, date, whoami,</div>
+      <div class="line">hostname, ipconfig, systeminfo, echo, help, exit</div>
+    `;
+  } else if (lc === 'exit') {
+    closeWindow('terminal'); return;
+  } else if (cmd !== '') {
+    output = `<div class="line" style="color:#e74c3c;">'${cmd}' nie jest rozpoznawane jako polecenie wewnętrzne</div>`;
+  }
+
+  if (output) body.insertAdjacentHTML('beforeend', output);
+
+  // New input line
+  const newLine = document.createElement('div');
+  newLine.className = 'terminal-input-line';
+  newLine.innerHTML = `<span class="prompt">PS C:\\Users\\Użytkownik&gt; </span><input class="terminal-input" id="terminalInput" onkeydown="handleTerminal(event)">`;
+  body.appendChild(newLine);
+  const newInput = newLine.querySelector('input');
+  newInput.focus();
+  body.scrollTop = body.scrollHeight;
+}
+
+// SETTINGS
+function openSettings() {
+  createWindow('settings', 'Ustawienia', '⚙️', 850, 550, `
+    <div class="settings-container">
+      <div class="settings-sidebar">
+        <div class="settings-item active" onclick="settingsNav(this,'system')">💻 System</div>
+        <div class="settings-item" onclick="settingsNav(this,'devices')">⌨️ Urządzenia</div>
+        <div class="settings-item" onclick="settingsNav(this,'network')">🌐 Sieć</div>
+        <div class="settings-item" onclick="settingsNav(this,'personalization')">🎨 Personalizacja</div>
+        <div class="settings-item" onclick="settingsNav(this,'apps')">📦 Aplikacje</div>
+        <div class="settings-item" onclick="settingsNav(this,'accounts')">👤 Konta</div>
+        <div class="settings-item" onclick="settingsNav(this,'time')">🕐 Czas i język</div>
+        <div class="settings-item" onclick="settingsNav(this,'privacy')">🔒 Prywatność</div>
+        <div class="settings-item" onclick="settingsNav(this,'update')">🔄 Aktualizacja</div>
+      </div>
+      <div class="settings-content" id="settingsContent">
+        <h2>💻 System</h2>
+        <div class="settings-option"><div><div style="font-weight:600;">Tryb ciemny</div><div style="font-size:12px;opacity:0.6;">Ciemna kolorystyka aplikacji</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="settings-option"><div><div style="font-weight:600;">Tryb nocny</div><div style="font-size:12px;opacity:0.6;">Zmniejsza niebieskie światło</div></div><div class="toggle-switch" onclick="this.classList.toggle('on')"></div></div>
+        <div class="settings-option"><div><div style="font-weight:600;">Powiadomienia</div><div style="font-size:12px;opacity:0.6;">Pokaż powiadomienia na pulpicie</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="settings-option"><div><div style="font-weight:600;">Aktualizacje automatyczne</div><div style="font-size:12px;opacity:0.6;">Automatycznie pobieraj aktualizacje</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="settings-option"><div><div style="font-weight:600;">Przezroczystość</div><div style="font-size:12px;opacity:0.6;">Efekty przezroczystości w systemie</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    </div>
+  `);
+}
+
+function settingsNav(el, section) {
+  document.querySelectorAll('#win-settings .settings-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  const content = document.getElementById('settingsContent');
+  const sections = {
+    system: '<h2>💻 System</h2><div class="settings-option"><div><div style="font-weight:600;">Tryb ciemny</div></div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div>',
+    devices: '<h2>⌨️ Urządzenia</h2><div class="settings-option"><div>Bluetooth</div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-option"><div>Drukarka: HP LaserJet (domyślna)</div><div style="opacity:0.5">✓ Podłączona</div></div>',
+    network: '<h2>🌐 Sieć i Internet</h2><div class="settings-option"><div><div style="font-weight:600;">Wi-Fi</div><div style="font-size:12px;opacity:0.6;">Połączono: MojaWiFi_5G</div></div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-option"><div>Stan sieci</div><div style="color:#4caf50;">● Połączono</div></div>',
+    personalization: '<h2>🎨 Personalizacja</h2><div style="display:flex;gap:10px;margin:15px 0;"><div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#0078D4,#001a33);cursor:pointer;border:2px solid #0078D4;" onclick="changeWallpaper(0)"></div><div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#2d7d9a,#1a3a4a);cursor:pointer;" onclick="changeWallpaper(1)"></div><div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#744DA9,#2a1a4a);cursor:pointer;" onclick="changeWallpaper(2)"></div><div style="width:60px;height:60px;border-radius:8px;background:linear-gradient(135deg,#e81123,#4a0a0a);cursor:pointer;" onclick="changeWallpaper(3)"></div></div>',
+    apps: '<h2>📦 Aplikacje</h2><div class="settings-option"><div>Microsoft Edge</div><div style="opacity:0.5;">120 MB</div></div><div class="settings-option"><div>Kalkulator</div><div style="opacity:0.5;">12 MB</div></div><div class="settings-option"><div>Notatnik</div><div style="opacity:0.5;">2 MB</div></div><div class="settings-option"><div>Terminal</div><div style="opacity:0.5;">45 MB</div></div>',
+    accounts: '<h2>👤 Konta</h2><div style="display:flex;align-items:center;gap:15px;margin:15px 0;"><div style="width:60px;height:60px;border-radius:50%;background:#444;display:flex;align-items:center;justify-content:center;font-size:28px;">👤</div><div><div style="font-weight:600;">Użytkownik</div><div style="opacity:0.6;font-size:13px;">user@outlook.com</div><div style="opacity:0.6;font-size:13px;">Administrator</div></div></div>',
+    time: '<h2>🕐 Czas i język</h2><div class="settings-option"><div>Strefa czasowa</div><div>(UTC+01:00) Europa/Warszawa</div></div><div class="settings-option"><div>Format daty</div><div>DD.MM.RRRR</div></div><div class="settings-option"><div>Język wyświetlania</div><div>Polski 🇵🇱</div></div>',
+    privacy: '<h2>🔒 Prywatność</h2><div class="settings-option"><div>Lokalizacja</div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-option"><div>Kamera</div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-option"><div>Mikrofon</div><div class="toggle-switch on" onclick="this.classList.toggle(\'on\')"></div></div>',
+    update: '<h2>🔄 Windows Update</h2><div style="padding:15px;background:rgba(76,175,80,0.1);border-radius:6px;margin:10px 0;"><div style="font-size:18px;">✅ System jest aktualny</div><div style="opacity:0.6;margin-top:5px;font-size:13px;">Ostatnio sprawdzono: dziś, 12:00</div></div><button style="padding:10px 25px;background:#0078D4;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;" onclick="showNotification(\'Windows Update\',\'Sprawdzanie aktualizacji...\')">Sprawdź aktualizacje</button>',
+  };
+  content.innerHTML = sections[section] || '<h2>Sekcja</h2>';
+}
+
+function changeWallpaper(index) {
+  const wallpapers = [
+    'radial-gradient(circle at 50% 40%, #0078D4, #001a33)',
+    'radial-gradient(circle at 50% 40%, #2d7d9a, #1a3a4a)',
+    'radial-gradient(circle at 50% 40%, #744DA9, #2a1a4a)',
+    'radial-gradient(circle at 50% 40%, #e81123, #4a0a0a)',
+  ];
+  document.getElementById('desktop').style.background = wallpapers[index];
+  showNotification('Personalizacja', 'Tapeta została zmieniona!');
+}
+
+// PHOTOS
+function openPhotos() {
+  createWindow('photos', 'Zdjęcia', '🖼️', 700, 500, `
+    <div style="padding:20px;">
+      <h2 style="font-weight:300;margin-bottom:20px;">Kolekcja</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        ${['🌅','🏔️','🌊','🌺','🌇','🏖️','🌄','🌿','🦋','🌸','🏙️','🌻'].map((e,i) =>
+          `<div style="aspect-ratio:1;background:hsl(${i*30},40%,25%);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:42px;cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="showNotification('Zdjęcia','Otwieranie zdjęcia...')">${e}</div>`
+        ).join('')}
+      </div>
+    </div>
+  `);
+}
+
+// MUSIC
+function openMusic() {
+  createWindow('music', 'Groove Music', '🎵', 600, 400, `
+    <div style="padding:20px;">
+      <h2 style="font-weight:300;margin-bottom:20px;">🎵 Twoja muzyka</h2>
+      ${['Bohemian Rhapsody - Queen','Blinding Lights - The Weeknd','Shape of You - Ed Sheeran','Smells Like Teen Spirit - Nirvana','Hotel California - Eagles','Billie Jean - Michael Jackson'].map((s,i) =>
+        `<div style="display:flex;align-items:center;padding:12px;border-radius:4px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'" onclick="playTrack('${s}')">
+          <div style="width:40px;height:40px;background:hsl(${i*60},50%,30%);border-radius:4px;display:flex;align-items:center;justify-content:center;margin-right:12px;">🎵</div>
+          <div><div style="font-size:14px;">${s.split(' - ')[0]}</div><div style="font-size:12px;opacity:0.5;">${s.split(' - ')[1]}</div></div>
+          <div style="margin-left:auto;opacity:0.4;">3:${(i+1)*7%60 < 10 ? '0' : ''}${(i+1)*7%60}</div>
+        </div>`
+      ).join('')}
+      <div id="musicPlayer" style="position:absolute;bottom:0;left:0;right:0;height:60px;background:#2d2d2d;display:flex;align-items:center;padding:0 20px;display:none;">
+        <div id="nowPlaying" style="flex:1;font-size:13px;"></div>
+        <button style="background:none;border:none;color:white;font-size:24px;cursor:pointer;margin:0 10px;" onclick="showNotification('Muzyka','⏮ Poprzedni')">⏮</button>
+        <button style="background:#0078D4;border:none;color:white;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;" onclick="showNotification('Muzyka','▶️ Odtwarzanie / Pauza')">▶️</button>
+        <button style="background:none;border:none;color:white;font-size:24px;cursor:pointer;margin:0 10px;" onclick="showNotification('Muzyka','⏭ Następny')">⏭</button>
+      </div>
+    </div>
+  `);
+}
+
+function playTrack(name) {
+  const player = document.getElementById('musicPlayer');
+  const np = document.getElementById('nowPlaying');
+  if (player && np) {
+    player.style.display = 'flex';
+    np.textContent = '🎵 ' + name;
+    showNotification('Odtwarzanie', name);
+  }
+}
+
+// STORE
+function openStore() {
+  createWindow('store', 'Microsoft Store', '🛍️', 800, 500, `
+    <div style="padding:20px;">
+      <div style="background:linear-gradient(135deg,#0078D4,#005A9E);padding:30px;border-radius:8px;margin-bottom:20px;">
+        <h2 style="font-weight:300;">Witaj w Microsoft Store</h2>
+        <p style="opacity:0.7;margin-top:8px;">Odkryj najlepsze aplikacje i gry</p>
+      </div>
+      <h3 style="font-weight:400;margin-bottom:15px;">Popularne aplikacje</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+        ${[
+          ['📱','TikTok','Bezpłatna'],['💬','Messenger','Bezpłatna'],
+          ['🎮','Xbox','Bezpłatna'],['📷','Instagram','Bezpłatna'],
+          ['🎵','Spotify','Bezpłatna'],['📺','Netflix','Bezpłatna'],
+          ['💻','VS Code','Bezpłatna'],['🎬','VLC','Bezpłatna'],
+        ].map(a => `
+          <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:15px;text-align:center;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'" onclick="showNotification('Sklep','Instalowanie ${a[1]}...')">
+            <div style="font-size:32px;margin-bottom:8px;">${a[0]}</div>
+            <div style="font-size:13px;">${a[1]}</div>
+            <div style="font-size:11px;opacity:0.5;margin-top:4px;">${a[2]}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `);
+}
+
+// PAINT (simple)
+function openPaint() {
+  createWindow('paint', 'Paint', '🎨', 750, 500, `
+    <div style="display:flex;flex-direction:column;height:100%;">
+      <div style="padding:8px 12px;background:#2d2d2d;display:flex;gap:6px;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;opacity:0.6;">Kolor:</span>
+        ${['#ffffff','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#888888'].map(c =>
+          `<div style="width:22px;height:22px;background:${c};border-radius:3px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);" onclick="paintColor='${c}'"></div>`
+        ).join('')}
+        <span style="margin-left:15px;font-size:12px;opacity:0.6;">Rozmiar:</span>
+        <input type="range" min="1" max="20" value="3" style="width:80px;" onchange="paintSize=this.value">
+        <button style="margin-left:auto;padding:4px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.1);color:white;border-radius:3px;cursor:pointer;font-size:12px;" onclick="clearPaintCanvas()">Wyczyść</button>
+      </div>
+      <canvas id="paintCanvas" style="flex:1;cursor:crosshair;background:white;"></canvas>
+    </div>
+  `);
+  setTimeout(initPaint, 100);
+}
+
+let paintColor = '#000000';
+let paintSize = 3;
+let painting = false;
+
+function initPaint() {
+  const canvas = document.getElementById('paintCanvas');
+  if (!canvas) return;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height - 44;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  canvas.addEventListener('mousedown', (e) => {
+    painting = true;
+    ctx.beginPath();
+    const r = canvas.getBoundingClientRect();
+    ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    if (!painting) return;
+    const r = canvas.getBoundingClientRect();
+    ctx.lineWidth = paintSize;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = paintColor;
+    ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
+    ctx.stroke();
+  });
+  canvas.addEventListener('mouseup', () => painting = false);
+  canvas.addEventListener('mouseleave', () => painting = false);
+}
+
+function clearPaintCanvas() {
+  const canvas = document.getElementById('paintCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// RECYCLE BIN
+function openRecycleBin() {
+  createWindow('recycle', 'Kosz', '🗑️', 600, 400, `
+    <div class="explorer-toolbar">
+      <button onclick="showNotification('Kosz','Kosz został opróżniony!')">🗑️ Opróżnij Kosz</button>
+      <div class="explorer-path" style="flex:1;">🗑️ Kosz</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0.4;">
+      <div style="font-size:64px;">🗑️</div>
+      <div style="margin-top:10px;">Kosz jest pusty</div>
+    </div>
+  `);
+}
+
+// SHUTDOWN MENU
+function showShutdownMenu() {
+  const menu = document.getElementById('contextMenu');
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="doShutdown('sleep')">😴 Uśpij</div>
+    <div class="ctx-item" onclick="doShutdown('shutdown')">⏻ Zamknij</div>
+    <div class="ctx-item" onclick="doShutdown('restart')">🔄 Uruchom ponownie</div>
+  `;
+  menu.style.left = '10px';
+  menu.style.bottom = '90px';
+  menu.style.top = 'auto';
+  menu.style.display = 'block';
+}
+
+function doShutdown(type) {
+  document.getElementById('contextMenu').style.display = 'none';
+  if (startMenuOpen) toggleStartMenu();
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:black;z-index:20000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;animation:fadeIn 1s;';
+
+  if (type === 'shutdown') {
+    overlay.innerHTML = '<div style="font-size:20px;">Zamykanie systemu...</div><div style="margin-top:20px;width:40px;height:40px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;"></div>';
+  } else if (type === 'restart') {
+    overlay.innerHTML = '<div style="font-size:20px;">Ponowne uruchamianie...</div><div style="margin-top:20px;width:40px;height:40px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;"></div>';
+  } else {
+    overlay.innerHTML = '';
+  }
+
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+  overlay.appendChild(style);
+  document.body.appendChild(overlay);
+
+  if (type === 'restart') {
+    setTimeout(() => {
+      overlay.remove();
+      // Reset to lock screen
+      document.getElementById('desktop').classList.remove('show');
+      document.getElementById('taskbar').style.display = 'none';
+      windows.forEach(w => w.element.remove());
+      windows = [];
+      document.getElementById('lockScreen').classList.remove('hide');
+      document.getElementById('loginScreen').classList.remove('show', 'hide');
+      document.getElementById('loginScreen').style.display = '';
+    }, 3000);
+  }
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  // Win key simulation (Meta)
+  if (e.key === 'Meta') { e.preventDefault(); toggleStartMenu(); }
+  // Ctrl+E = Explorer
+  if (e.ctrlKey && e.key === 'e') { e.preventDefault(); openApp('explorer'); }
+});
+
+// ===== INITIAL NOTIFICATION AFTER 5s =====
+setTimeout(() => {
+  if (document.getElementById('desktop').classList.contains('show')) {
+    showNotification('🛡️ Zabezpieczenia Windows', 'Twoje urządzenie jest w pełni chronione.');
+  }
+}, 8000);
+</script>
+</body>
+</html>
